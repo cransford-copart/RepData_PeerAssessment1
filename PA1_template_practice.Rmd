@@ -1,0 +1,82 @@
+---
+title: "activity_monitoring_wk2"
+author: "Carson"
+date: "October 14, 2018"
+output: html_document
+---
+
+```{r load data}
+temp <- tempfile()
+download.file("https://d396qusza40orc.cloudfront.net/repdata%2Fdata%2Factivity.zip", destfile = temp)
+activity_df <- read.delim(unz(temp, "activity.csv"), sep = ",")
+```
+
+Total Steps Per Day
+```{r Steps Per Day Calculation}
+library(data.table)
+library(ggplot2)
+dailyStepsDf <- as.data.table(activity_df)[(!is.na(activity_df$steps)),
+                                           list(
+                                             daily_steps = sum(steps)
+                                           ),
+                                           by = date]
+
+ggplot(dailyStepsDf, aes(x = date, y = daily_steps)) + 
+  geom_bar(stat = "identity") +
+  labs(x = "Date", y = "Total Steps", title = "Total Steps Per Day")
+
+
+
+paste("The imputed 'activity' report has an average of", mean(dailyStepsDf$daily_steps, na.rm = TRUE),"steps per day, and", median(dailyStepsDf$daily_steps, na.rm = TRUE),"median steps per day.")
+```
+
+Average Daily Activity Pattern
+```{r daily activity pattern}
+library(data.table)
+library(ggplot2)
+timeSeriesDf <- as.data.table(activity_df)[(!is.na(activity_df$steps)),
+                                           list(
+                                             avg_steps = mean(steps)
+                                           ),
+                                           by = interval]
+
+ggplot(timeSeriesDf, aes(x = interval, y = avg_steps)) + 
+  geom_line() + 
+  labs(x = "Time Interval", y = "Average Steps", title = "Avg. Steps Per Interval")
+
+avgMaxSteps = max(timeSeriesDf$avg_steps)
+print(avgMaxSteps)
+```
+
+Imputing Missing Values
+```{r impute missing values}
+library(plyr)
+library(data.table)
+library(ggplot2)
+paste( "The 'activity' report contains", nrow(as.data.table(activity_df)[(is.na(activity_df$steps)),]), "missing values.")
+
+impute.mean <- function(x) replace(x, is.na(x), round(mean(x, na.rm = TRUE)))
+activity_df_imp <- ddply(activity_df, ~ interval, transform, steps = impute.mean(steps))
+
+dailyStepsImpDf <- as.data.table(activity_df_imp)[,
+                           list(
+                             daily_steps = sum(steps)
+                           ),
+                           by = date]
+
+ggplot(dailyStepsImpDf, aes(x = date, y = daily_steps)) + 
+  geom_bar(stat = "identity") + 
+  labs(x = "Date", y = "Total Steps", title = "Total Daily Steps")
+
+paste("The imputed 'activity' report has an average of", mean(dailyStepsImpDf$daily_steps),"steps per day, and", median(dailyStepsImpDf$daily_steps),"median steps per day.")
+```
+
+
+Are there differences in activity patterns between weekdays and weekends?
+```{r weekdays vs weekends}
+activity_df_imp$day_type <- ifelse(weekdays(as.Date(activity_df_imp$date, '%Y-%m-%d')) %in% c("Saturday","Sunday"), "weekend","weekday")
+
+ggplot(activity_df_imp, aes(x = interval, y = steps)) + 
+  geom_line(col = "blue") + 
+  facet_grid(.~ day_type)
+```
